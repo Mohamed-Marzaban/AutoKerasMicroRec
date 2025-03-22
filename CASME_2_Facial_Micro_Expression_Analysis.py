@@ -1,4 +1,5 @@
 import tensorflow as tf
+import autokeras as ak
 
 # Define dataset path (make sure to use 'r' before the path)
 dataset_path = r"C:\Users\moham\OneDrive\Desktop\uni\Bachelors\datasets\CASME 2 PREPROCESSED labeled\CASME2 Preprocessed v2"
@@ -8,7 +9,7 @@ dataset_path = r"C:\Users\moham\OneDrive\Desktop\uni\Bachelors\datasets\CASME 2 
 train_ds = tf.keras.utils.image_dataset_from_directory(
     dataset_path,
     image_size=(224, 224),  # Resize images to 224x224
-    batch_size=32,  # Load in batches of 32
+    batch_size=None,  # Load in batches of 32
     label_mode='int'  # Labels as integers
 )
 
@@ -38,10 +39,35 @@ test_ds = train_ds.skip(val_size).take(test_size)
 train_ds = train_ds.skip(val_size + test_size)
 
 
-print(f"Training batches: {len(train_ds)}")
-print(f"Validation batches: {len(val_ds)}")
-print(f"Test batches: {len(test_ds)}")
+#step 4 optimizing pipeline performance
+AUTOTUNE = tf.data.AUTOTUNE
+train_ds = train_ds.cache().shuffle(1000).batch(32).prefetch(buffer_size=AUTOTUNE)
+val_ds = val_ds.cache().batch(32).prefetch(buffer_size=AUTOTUNE)
+test_ds = test_ds.cache().batch(32).prefetch(buffer_size=AUTOTUNE)
 
+
+#step 5
+# Define the AutoKeras ImageClassifier
+model = ak.ImageClassifier(
+    overwrite=True,  # Start fresh; removes any saved state from previous runs
+    max_trials=15 ,   # Try 10 different model architectures
+    directory='autokeras_dir'  # Directory to save trial information
+)
+
+# Train the model
+history = model.fit(
+    train_ds,  # Training dataset
+    validation_data=val_ds,  # Validation dataset
+    epochs=20 , # Number of passes through the entire training dataset
+     verbose=2  # Clear logs for each epoch
+)
+
+# Export the best model
+trained_model = model.export_model()
+
+#  Save the model to disk
+# Save as TensorFlow SavedModel
+trained_model.save("best_model_tf")
 
 
 
